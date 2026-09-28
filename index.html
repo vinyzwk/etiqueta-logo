@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Silver Plastic - Etiquetas 130x75</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  @page{size:130mm 75mm landscape;margin:0}
+  @media print{
+    html,body{width:130mm;height:75mm;margin:0!important;padding:0!important;overflow:hidden!important;background:#fff!important}
+    .no-print{display:none!important}
+    #print-only{display:flex!important;position:fixed!important;left:0!important;top:0!important;width:130mm!important;height:75mm!important;background:#fff;align-items:center;justify-content:center}
+    #etiqueta-print{width:130mm!important;height:75mm!important;box-shadow:none!important}
+  }
+  @media screen{#print-only{display:none!important}}
+  .etiqueta{width:130mm;height:75mm;background:#fff;position:relative;flex-shrink:0}
+  .borda{position:absolute;left:4mm;top:4mm;right:4mm;bottom:10mm;border:2.5mm solid #000;display:flex;align-items:center;justify-content:center;overflow:hidden}
+  .logo{max-width:88%;max-height:88%;object-fit:contain}
+  .conf{position:absolute;bottom:1.5mm;left:4mm;right:4mm;text-align:center;font:800 8pt Arial Black,Arial,sans-serif;letter-spacing:.2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+</style>
+</head>
+<body class="bg-[#f6f6f7] h-screen flex flex-col overflow-hidden antialiased">
+<header class="no-print h-14 bg-white border-b border-zinc-200 flex items-center justify-between px-5 shrink-0">
+  <div class="flex items-center gap-3">
+    <div class="w-8 h-8 bg-orange-500 rounded-lg grid place-items-center text-white font-black text-xs">SP</div>
+    <div><div class="font-bold text-sm leading-none">SILVER PLASTIC</div><div class="text-[10px] text-zinc-500 leading-none mt-1">Etiquetas 130×75mm</div></div>
+  </div>
+  <div class="flex items-center gap-2">
+    <span id="count" class="text-xs text-zinc-500">● Sincronizando planilha...</span>
+    <button onclick="load()" class="text-xs bg-zinc-900 text-white px-3 py-1.5 rounded-full hover:bg-black">↻ Sincronizar</button>
+  </div>
+</header>
+<div class="flex flex-1 overflow-hidden">
+<aside class="no-print w-[340px] bg-white border-r border-zinc-200 flex flex-col">
+  <div class="p-4 border-b border-zinc-100">
+    <label class="text-[10px] font-bold tracking-widest text-zinc-500">CONFERENTE</label>
+    <input id="confInput" class="mt-2 w-full px-3 py-2.5 bg-zinc-50 border border-zinc-200 rounded-xl text-sm focus:outline-none focus:border-orange-400 focus:bg-white" placeholder="Digite seu nome" oninput="updateConf()">
+    <div id="hora" class="text-[10px] text-zinc-400 mt-2"></div>
+  </div>
+  <div class="p-3 border-b border-zinc-100">
+    <div id="tabs" class="flex gap-1.5 flex-wrap"></div>
+    <div class="relative mt-3">
+      <input id="busca" placeholder="Buscar..." class="w-full pl-8 pr-3 py-2 bg-zinc-50 border border-zinc-200 rounded-xl text-sm focus:outline-none focus:border-zinc-300" oninput="renderList()">
+      <span class="absolute left-3 top-2.5 text-zinc-400 text-xs">⌕</span>
+    </div>
+  </div>
+  <div id="list" class="flex-1 overflow-y-auto p-2"></div>
+  <div class="p-3 border-t border-zinc-100 text-[10px] text-zinc-400"><a class="underline" target="_blank" href="https://docs.google.com/spreadsheets/d/e/2PACX-1vQ2D9SEuzjSaK-lIpDppsKjCa59aGTcisJkXXcQ-i9eA1fh_B0vrp59L4mGo0KN3blJXgtNpnpf1Ney/pubhtml">Planilha oficial</a> • GitHub Pages pronto</div>
+</aside>
+<main class="flex-1 bg-[#efeff1] grid place-items-center p-8">
+  <div class="flex flex-col items-center gap-4">
+    <div id="etiquetaScreen" class="etiqueta shadow-[0_25px_70px_-20px_rgba(0,0,0,.35)]">
+      <div class="borda"><img id="imgScreen" class="logo hidden"><div id="fallbackScreen" class="text-center"><div id="fbName" class="text-5xl font-black">Selecione<br>um cliente</div><div class="text-xs text-zinc-400 mt-2">da lista ao lado</div></div></div>
+      <div id="confScreen" class="conf">CONF: NÃO INFORMADO</div>
+    </div>
+    <div class="text-[11px] text-zinc-400">130 × 75 mm • 1 folha • Zebra</div>
+  </div>
+</main>
+</div>
+<div id="print-only"><div id="etiqueta-print" class="etiqueta"><div class="borda"><img id="imgPrint" class="logo hidden"><div id="fallbackPrint" class="text-center"><div id="fbPrintName" class="text-5xl font-black"></div></div></div><div id="confPrint" class="conf"></div></div></div>
+<script>
+const SHEET_ID="2PACX-1vQ2D9SEuzjSaK-lIpDppsKjCa59aGTcisJkXXcQ-i9eA1fh_B0vrp59L4mGo0KN3blJXgtNpnpf1Ney";
+const CSV=`https://docs.google.com/spreadsheets/d/e/${SHEET_ID}/pub?output=csv`;
+const PROXY=`https://api.allorigins.win/raw?url=${encodeURIComponent(CSV)}`;
+let clientes=[], catAtiva="TODOS", sel=null;
+const toDirect=l=>{const m=(l||"").match(/\/d\/([a-zA-Z0-9_-]+)/);return m?`https://drive.google.com/thumbnail?id=${m[1]}&sz=w1000`:l;};
+function parse(t){const out=[];for(let line of t.trim().split(/\r?\n/)){if(!line.trim())continue;let cols=[],cur="",q=false;for(let c of line){if(c=='"'){q=!q;continue}if(c==','&&!q){cols.push(cur);cur="";continue}cur+=c}cols.push(cur);const n=(cols[0]||"").replace(/^"+|"+$/g,"").trim(),b=(cols[1]||"").replace(/^"+|"+$/g,"").trim(),c=(cols[2]||"CLIENTE").replace(/^"+|"+$/g,"").trim().toUpperCase()||"CLIENTE";if(n)out.push({nome:n,logo:toDirect(b),categoria:c})}return out}
+async function load(){document.getElementById("count").textContent="● Sincronizando...";try{let r=await fetch(CSV);let t=await r.text();if(!t||t.length<3)throw 0;clientes=parse(t)}catch{try{let r=await fetch(PROXY);let t=await r.text();clientes=parse(t)}catch{e=>{document.getElementById("count").textContent="○ Erro planilha";return}}}document.getElementById("count").textContent=`● ${clientes.length} etiquetas`;renderTabs();renderList()}
+function renderTabs(){const cats=[...new Set(clientes.map(c=>c.categoria))].sort();const all=["TODOS",...cats];document.getElementById("tabs").innerHTML=all.map(c=>{const cnt=c=="TODOS"?clientes.length:clientes.filter(x=>x.categoria==c).length;const act=c==catAtiva?"bg-black text-white":"bg-zinc-100 text-zinc-600 hover:bg-zinc-200";return `<button onclick="setCat('${c}')" class="px-3 py-1.5 rounded-full text-[10px] font-bold tracking-widest ${act}">${c} ${cnt}</button>`}).join("")}
+function setCat(c){catAtiva=c;renderTabs();renderList()}
+function filtered(){const b=document.getElementById("busca").value.toLowerCase();return clientes.filter(x=>(catAtiva=="TODOS"||x.categoria==catAtiva)&&(!b||x.nome.toLowerCase().includes(b)))}
+function renderList(){const f=filtered();document.getElementById("list").innerHTML=f.length?f.map(c=>{const a=sel&&sel.nome==c.nome;return `<div onclick='selectClient(${JSON.stringify(c).replace(/'/g,"&#39;")})' class="p-3 rounded-xl cursor-pointer border mb-1.5 ${a?'bg-black text-white border-black':'bg-white border-zinc-100 hover:bg-zinc-50'}"><div class="font-semibold text-[13px] leading-tight">${c.nome}</div><div class="text-[10px] mt-0.5 ${a?'text-white/60':'text-zinc-500'}">${c.categoria}</div></div>`}).join(""):`<div class="text-center text-sm text-zinc-400 py-10">Nenhum encontrado</div>`}
+function selectClient(c){sel=c;const iS=document.getElementById("imgScreen"),fS=document.getElementById("fallbackScreen"),fb=document.getElementById("fbName"),iP=document.getElementById("imgPrint"),fP=document.getElementById("fallbackPrint"),fbP=document.getElementById("fbPrintName");if(c.logo){iS.src=c.logo;iS.classList.remove("hidden");fS.classList.add("hidden");iP.src=c.logo;iP.classList.remove("hidden");fP.classList.add("hidden");iS.onerror=()=>{iS.classList.add("hidden");fS.classList.remove("hidden");fb.textContent=c.nome};iP.onerror=()=>{iP.classList.add("hidden");fP.classList.remove("hidden");fbP.textContent=c.nome}}else{iS.classList.add("hidden");fS.classList.remove("hidden");fb.textContent=c.nome;iP.classList.add("hidden");fP.classList.remove("hidden");fbP.textContent=c.nome}renderList();updateConf()}
+function updateConf(){const n=document.getElementById("confInput").value.trim()||"NÃO INFORMADO";const d=new Date();const txt=`CONF: ${n.toUpperCase()} - ${d.toLocaleDateString('pt-BR')} ${d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}`;document.getElementById("confScreen").textContent=txt;document.getElementById("confPrint").textContent=txt;document.getElementById("confScreen").style.color=n=="NÃO INFORMADO"?"#ef4444":"#000"}
+setInterval(()=>{const d=new Date();document.getElementById("hora").textContent=d.toLocaleDateString('pt-BR')+" "+d.toLocaleTimeString('pt-BR')+" • atualiza automático";if(sel)updateConf()},10000);
+load();updateConf();
+</script>
+</body>
+</html>
